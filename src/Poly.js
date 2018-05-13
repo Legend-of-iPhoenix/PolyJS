@@ -10,7 +10,7 @@ function PolyJS(canvas) {
   // list of polygons
   this.polygons = [];
   /* Polygon object. Usage: new pJS.Polygon(points[, edgeColor][, fillColor][, filled]);
-   *   points: An array of points in the form [[x1, y1], [x2, y2], ... [x_n, y_n]]
+   *   points: An array of points in the form [[x1, y1], [x2, y2], ... [x_n, y_n]]. Points can be attached to other points by changing one of the [x_n, y_n] pairs to {attached: [polygon object, index of point to attach to]}
    *   edgeColor: The color of the edges of the polygon. Defaults to "black" (#000000) 
    *   fillColor: The color to fill the polygon with. Defaults to whatever the edgeColor is. If it is set to the boolean false, it will effectively be transparent.
    *   filled: If you want to have an unfilled polygon with a set fill color so you can make it filled later, you can set the argument filled to false. Defaults to false. 
@@ -23,59 +23,80 @@ function PolyJS(canvas) {
       // number of sides the polygon has.
       this.numSides = points.length;
       // I'm using a get/set combo for some stuff, so we have to have some hidden internal variables for storing them.
-      var _internalPoints = points,
-        _internalEdgeColor = edgeColor,
-        _internalFillColor = fillColor;
+      var _points = points,
+        _edgeColor = edgeColor,
+        _fillColor = fillColor,
+        _filled = false;
       // For redrawing
       this.dirty = true;
+      // WARNING: ONLY CHANGE THE POINTS BY SETTING THE WHOLE ARRAY OR USING setPoint(index, value)! THINGS MAY NOT WORK AS INTENDED!
       Object.defineProperty(this, "points", {
         configurable: false,
         enumerable: true,
         set: function(value) {
-          var edges = [];
-          _internalPoints = value;
-          // redefine the edges if the points change
-          _internalPoints.forEach(function(point, index) {
-            edges.push([point, value[(index + 1) % _internalPoints.length]]);
-          });
-          this.edges = edges;
+          _points = value;
+          // if the number of points changed (or even if it didn't) adjust the recorded number of sides.
+          this.numSides = points.length;
           // mark polygon as dirty
           this.dirty = true;
         },
         get: function() {
-          return _internalPoints
+          return _points
+        }
+      });
+      // Use this to set the values of points. Usage: Polygon.prototype.setPoint(index, value)
+      //   index: index of the point in the points array (set to 1+points.length to add a point to the list.)
+      //   value: what the new value of the point should be.
+      Object.defineProperty(this, "setPoint", {
+        configurable: false,
+        enumerable: true,
+        value: function(index, value) {
+          if (index == _points.length + 1) {
+            _points.push(value);
+          } else {
+            _points[index] = value;
+          }
+          this.numSides = points.length;
+          // mark polygon as dirty
+          this.dirty = true;
         }
       });
       Object.defineProperty(this, "edgeColor", {
         configurable: false,
         enumerable: true,
         set: function(newEdgeColor) {
-          _internalEdgeColor = newEdgeColor;
+          _edgeColor = newEdgeColor;
           // mark polygon as dirty
           this.dirty = true;
         },
         get: function() {
-          return _internalEdgeColor
+          return _edgeColor
         }
       });
       Object.defineProperty(this, "fillColor", {
         configurable: false,
         enumerable: true,
         set: function(newFillColor) {
-          _internalFillColor = newFillColor;
+          _fillColor = newFillColor;
           // mark polygon as dirty
           this.dirty = true;
         },
         get: function() {
-          return _internalFillColor
+          return _fillColor
         }
       });
-      // define edges
-      var edges = [];
-      _internalPoints.forEach(function(point, index) {
-        edges.push([point, _internalPoints[(index + 1) % _internalPoints.length]]);
+      Object.defineProperty(this, "filled", {
+        configurable: false,
+        enumerable: true,
+        set: function(newFilled) {
+          _filled = newFilled;
+          // mark polygon as dirty
+          this.dirty = true;
+        },
+        get: function() {
+          return _filled
+        }
       });
-      this.edges = edges;
       this.edgeColor = edgeColor || "black";
       if (fillColor === false) {
         this.filled = false;
@@ -88,22 +109,46 @@ function PolyJS(canvas) {
     enumerable: true,
     configurable: false
   });
-  // for drawing. Usage: pJS.draw();
+  // for drawing. Usage: pJS.draw([clear]);
+  //   clear: set to true if you want to completely redraw everything, not just what changed. You should do this if you are moving points, but not if you are only changing colors. Defaults to false.
   Object.defineProperty(this, "draw", {
     configurable: false,
     enumerable: true,
-    value: function() {
-      // if the polygon is dirty,...
-      this.polygons.filter(polygon => polygon.dirty).map(polygon => {
-        var ctx = this.drawingContext;
+    value: function(clear) {
+      var ctx = this.drawingContext,
+        polygons = this.polygons;
+      if (polygons.filter(polygon => polygon.dirty).length == polygons.length || clear) {
+        //clear the canvas (code from https://stackoverflow.com/a/6722031)
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+
+      // if the polygon is dirty or clear is set to true, ...
+      polygons.filter(polygon => clear || polygon.dirty).map(polygon => {
         // ...set the stroke style to the edge color...
         ctx.strokeStyle = polygon.edgeColor;
         // ...start drawing...
         ctx.beginPath();
-        // ...with each of the edges,...
-        polygon.edges.map((edge, index) => {
+        // ...generate array of edges...
+        var points = polygon.points,
+          edges = [];
+        points.map(function(point, index) {
+          var point2 = points[(index + 1) % points.length];
+          // if the point is designated as attached to another point on a different polygon, replace the data with that point's coords.
+          if (point2.attached) {
+            point2 = point2.attached[0].points[point2.attached[1]];
+          }
+          if (point.attached) {
+            point = point.attached[0].points[point.attached[1]];
+          }
+          edges.push([point, point2]);
+        });
+        // ...with each of the edges...
+        edges.map((edge, index) => {
           if (index === 0) ctx.moveTo(edge[0][0], edge[0][1]); // ...if the edge is the first to be drawn, move the starting point into position...
-          ctx.lineTo(edge[1][0], edge[1][1]); // ...draw a line from point to point...
+          ctx.lineTo(edge[1][0], edge[1][1]); // ...and draw a line from point to point...
         });
         ctx.stroke(); // ...draw the edges...
         if (polygon.filled) { // if the polygon should be filled
@@ -115,3 +160,30 @@ function PolyJS(canvas) {
     }
   });
 }
+
+// Example: 
+/*
+var canvas = document.createElement("canvas");
+document.body.appendChild(canvas);
+var pJS = new PolyJS(canvas);
+var shape1 = new pJS.Polygon([
+  [0, 0],
+  [0, 100],
+  [100, 0]
+], "black", "green", true);
+var shape2 = new pJS.Polygon([{
+    attached: [pJS.polygons[0], 1]
+  }, {
+    attached: [pJS.polygons[0], 2]
+  },
+  [100, 50]
+], "black", "red", true);
+pJS.draw();
+
+setTimeout(x => {
+  var points = shape1.points;
+  shape1.setPoint(1, [0, 20]);
+  shape1.setPoint(2, [128, 32]);
+  pJS.draw(true);
+}, 500);
+*/
