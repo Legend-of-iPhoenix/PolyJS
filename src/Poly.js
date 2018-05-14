@@ -102,7 +102,7 @@ function PolyJS(canvas) {
         this.filled = false;
       } else {
         this.fillColor = fillColor || edgeColor;
-        this.filled = filled;
+        this.filled = filled === false ? false : true; 
       }
       this.PolyObj.polygons.push(this);
     },
@@ -137,11 +137,24 @@ function PolyJS(canvas) {
         points.map(function(point, index) {
           var point2 = points[(index + 1) % points.length];
           // if the point is designated as attached to another point on a different polygon, replace the data with that point's coords.
+          // fixed = attached, but with offset
           if (point2.attached) {
-            point2 = point2.attached[0].points[point2.attached[1]];
+            var attached = point2.attached;
+            point2 = attached[0].points[attached[1]];
+          } else {
+            if (point2.fixed) {
+              var fixed = point2.fixed;
+              point2 = fixed[0].points[fixed[1]] + fixed[2]; //add offset
+            }
           }
           if (point.attached) {
-            point = point.attached[0].points[point.attached[1]];
+            var attached = point.attached;
+            point = attached[0].points[attached[1]];
+          } else {
+            if (point.fixed) {
+              var fixed = point.fixed;
+              point = fixed[0].points[fixed[1]] + fixed[2]; //add offset
+            }
           }
           edges.push([point, point2]);
         });
