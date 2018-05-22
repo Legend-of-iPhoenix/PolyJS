@@ -20,6 +20,8 @@ function PolyJS(canvas) {
   object.defineProperty(this, "Polygon", {
       writable: false,
       value: function(points, edgeColor, fillColor, filled) {
+        if (points.length < 3) 
+          throw new Error("You cannot have a polygon with less than 3 points.");
         // this is the aforementioned hack.
         this.PolyObj = _this;
         // number of sides the polygon has.
@@ -29,7 +31,7 @@ function PolyJS(canvas) {
           _edgeColor = edgeColor,
           _fillColor = fillColor,
           _filled = false;
-        // For redrawing
+        // For redrawing. If polygon has been "dirtied", it needs to be redrawn.
         this.dirty = true;
         // WARNING: ONLY CHANGE THE POINTS BY SETTING THE WHOLE ARRAY OR USING setPoint(index, value)! THINGS MAY NOT WORK AS INTENDED!
         object.defineProperty(this, "points", {
@@ -59,7 +61,7 @@ function PolyJS(canvas) {
               } else {
                 _points[index] = value;
               }
-              this.numSides = points.length;
+              this.numSides = _points.length;
               // mark polygon as dirty
               this.dirty = true;
             }
@@ -72,17 +74,19 @@ function PolyJS(canvas) {
             configurable: false,
             enumerable: true,
             writable: false,
-            value: index => {
-              var point = _points[index], offset = [0, 0]
+            value: function (index) {
+              var point = _points[index], offset = [0, 0], lastPolygon = this;
               while (point.attached || point.fixed) {
                 if (point.attached) {
                   var attached = point.attached;
-                  point = (attached[0] == "self" ? this : attached[0]).points[attached[1]];
+                  lastPolygon = attached[0]
+                  point = lastPolygon.points[attached[1]];
                 } else {
                   if (point.fixed) {
                     var fixed = point.fixed;
                     offset = [offset[0] + fixed[2][0], offset[1] + fixed[2][1]];
-                    point = (fixed[0] == "self" ? this : fixed[0]).points[fixed[1]]; //add offset
+                    point = (fixed[0] == "self" ? lastPolygon : fixed[0]).points[fixed[1]]; //add offset
+                    lastPolygon = fixed[0] == "self" ? lastPolygon : fixed[0];
                   }
                 }
               }
@@ -131,7 +135,7 @@ function PolyJS(canvas) {
         this.filled = false;
       } else {
         this.fillColor = fillColor || edgeColor;
-        this.filled = filled === false ? false : true;
+        this.filled = !!filled;
       }
       this.PolyObj.polygons.push(this);
     },
@@ -146,7 +150,7 @@ object.defineProperty(this, "draw", {
   value: function(clear) {
     var ctx = this.drawingContext,
       polygons = this.polygons;
-    if (polygons.filter(polygon => polygon.dirty).length == polygons.length || clear) {
+    if (clear || polygons.filter(polygon => polygon.dirty).length == polygons.length) {
       //clear the canvas (code from https://stackoverflow.com/a/6722031)
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
