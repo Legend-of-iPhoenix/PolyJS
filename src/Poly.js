@@ -64,6 +64,31 @@ function PolyJS(canvas) {
               this.dirty = true;
             }
           },
+          // if the point is designated as attached to another point on a different polygon, replace the data with that point's coords.
+          // fixed = attached, but with offset
+          // attachment syntax: {attached: [polygon, point]}
+          // fixed syntax: {fixed: [polygon, point, [offset x, offset y]]}
+          "parsePoint": {
+            configurable: false,
+            enumerable: true,
+            writable: false,
+            value: index => {
+              var point = _points[index], offset = [0, 0]
+              while (point.attached || point.fixed) {
+                if (point.attached) {
+                  var attached = point.attached;
+                  point = (attached[0] == "self" ? this : attached[0]).points[attached[1]];
+                } else {
+                  if (point.fixed) {
+                    var fixed = point.fixed;
+                    offset = [offset[0] + fixed[2][0], offset[1] + fixed[2][1]];
+                    point = (fixed[0] == "self" ? this : fixed[0]).points[fixed[1]]; //add offset
+                  }
+                }
+              }
+              return [point[0] + offset[0], point[1] + offset[1]]
+            }
+          },
           "edgeColor": {
             configurable: false,
             enumerable: true,
@@ -138,29 +163,9 @@ object.defineProperty(this, "draw", {
       // ...generate array of edges...
       var points = polygon.points,
         edges = [];
-      // if the point is designated as attached to another point on a different polygon, replace the data with that point's coords.
-      // fixed = attached, but with offset
-      // attachment syntax: {attached: [polygon, point]}
-      // fixed syntax: {fixed: [polygon, point, [offset x, offset y]]}
-      var parsePoint = point => {
-        var offset = [0, 0]
-        while (point.attached || point.fixed) {
-          if (point.attached) {
-            var attached = point.attached;
-            point = attached[0].points[attached[1]];
-          } else {
-            if (point.fixed) {
-              var fixed = point.fixed;
-              offset = [offset[0] + fixed[2][0], offset[1] + fixed[2][1]];
-              point = fixed[0].points[fixed[1]]; //add offset
-            }
-          }
-        }
-        return [point[0] + offset[0], point[1] + offset[1]]
-      }
       points.map(function(point, index) {
-        var point2 = points[(index + 1) % points.length];
-        edges.push([parsePoint(point), parsePoint(point2)]);
+        var index2 = (index + 1) % points.length;
+        edges.push([polygon.parsePoint(index), polygon.parsePoint(index2)]);
       });
       // ...with each of the edges...
       edges.map((edge, index) => {
