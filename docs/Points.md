@@ -28,6 +28,8 @@ Fixing points is just like attaching them, except you can provide an offset: `{f
 
 This is useful if you have a polygon that you want to be a fixed distance and orientation from another polygon.
 
+Additionally, if you want to make a point relative to another point on the same polygon, you can pass the string `"self"` instead of a polygon object. This is useful if you have a polygon that will be moved around a lot. You can set one point and all of the other points to be relative to that one point. Then, you only have to move one point to move the whole polygon.
+
 ## Changing Points (with `setPoint`)
 
 You should **NEVER EVER EVER EVER** change a single point by modifying the points array directly. There is a function for setting points: `polygon_object.setPoint(index, value)` (`polygon_object` holds the polygon object that has a point in need of changing, `index` is the index of the point, and `value` is the new value of the point. This can be an explicit set of points or a fixed/attached declaration.)
