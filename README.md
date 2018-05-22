@@ -2,5 +2,7 @@
 A fast, lightweight JavaScript library for drawing polygons to a HTML5 Canvas.
 
 *Under heavy development*
-## Documentation
-There are some incomplete documentation files in the docs folder, but there are lots of usage notes and other documentation for all of the tools in the main source file located at `/src/Poly.js/`.
+
+## Download 
+
+You can get the latest build from [here](https://github.com/Legend-of-iPhoenix/PolyJS/releases/download/v0.1.0/Poly.min.js), and get the documentation from [here](https://github.com/Legend-of-iPhoenix/PolyJS/releases/download/v0.1.0/docs.zip).
