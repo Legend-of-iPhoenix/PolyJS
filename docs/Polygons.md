@@ -20,10 +20,12 @@ new pJS.Polygon(points[, edgeColor][, fillColor][, filled]);
 - `fillColor`: The fill color of the polygon.
 - `filled`: If the polygon should be filled or not.
 - `dirty`: Boolean. If it is true, this polygon is guaranteed to be redrawn on the next `pJS.draw()` call. It is automatically set to true if you change a Polygon's data and automatically set to false if it has been drawn.
+- `numPoints`: Number of points the polygon has.
 
 ### Functions
 
 - `setPoint(index, value)`: Changes or adds a point. See `Points.md` for more info.
+- `parsePoint(index)`: Takes the index of a point, and returns the absolute coordinates of that point, parsing and getting rid of any attachments or fixings. Useful for drawing.
 
 ## Warnings
 
